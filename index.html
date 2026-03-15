@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SHOMER | Society for Historical Oversight and Maintenance of Eternal Remembrance</title>
+  <title>SHOMER | Karnobat Jewish Cemetery Preservation</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -12,6 +11,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@400;500;600&family=Noto+Sans+Hebrew:wght@400;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <style>
     :root{
@@ -32,22 +34,24 @@
     .hero-bg{
       background-image:
         linear-gradient(var(--glass), var(--glass2)),
-        url('https://upload.wikimedia.org/wikipedia/commons/3/3f/Jewish_Cemetery_in_Karnobat_-_202.jpg');
+        url('./images/hero/karnobat-hero-202.jpg');
       background-size: cover;
       background-position: center;
       background-attachment: fixed;
     }
 
-    .gallery-container{ column-count:1; column-gap:1.5rem; }
-    @media (min-width: 640px){ .gallery-container{ column-count:2; } }
-    @media (min-width: 1024px){ .gallery-container{ column-count:3; } }
-
-    .gallery-item{ break-inside:avoid; margin-bottom:1.5rem; transition:transform .25s ease; }
-    .gallery-item:hover{ transform:scale(1.02); }
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(1, 1fr);
+      gap: 1rem;
+    }
+    @media (min-width: 640px) { .gallery-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (min-width: 1024px) { .gallery-grid { grid-template-columns: repeat(4, 1fr); } }
 
     .masonry-img{
       width:100%;
-      display:block;
+      height: 100%;
+      object-fit: cover;
       border-radius:16px;
       box-shadow:0 18px 28px -14px rgba(2,6,23,.25);
     }
@@ -67,807 +71,684 @@
       border-color:transparent;
     }
 
-    /* RTL: keep layout sane */
     [dir="rtl"] .rtl-start{ text-align:right; }
     [dir="rtl"] .rtl-center{ text-align:center; }
+
+    button.zoom-button {
+      display: block;
+      width: 100%;
+      max-width: 340px;
+      margin: 16px auto;
+      padding: 14px;
+      background: #1e293b;
+      color: white;
+      border: none;
+      border-radius: 9999px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    #map {
+      height: 60vh;
+      width: 100%;
+      min-height: 320px;
+      border-radius: 20px;
+      overflow: hidden;
+    }
+    .leaflet-control-attribution {
+      background: rgba(255,255,255,0.85);
+      padding: 3px 8px;
+      font-size: 11px;
+      border-radius: 6px;
+      cursor: pointer;
+      color: #333;
+      max-width: 110px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+    .leaflet-control-attribution.expanded {
+      max-width: none;
+      white-space: normal;
+      font-size: 10px;
+      padding: 5px 10px;
+    }
+    .leaflet-popup-content-wrapper,
+    .leaflet-popup-tip { background: transparent !important; box-shadow: none !important; }
+    .leaflet-popup-content {
+      margin: 0; padding: 0;
+      font-size: 15px; color: white;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+    }
   </style>
 </head>
 
 <body class="bg-white text-slate-900">
   <div id="progress-bar" class="scroll-progress w-0"></div>
 
-  <!-- Navbar -->
-  <nav class="sticky top-0 z-50 border-b border-slate-200 bg-white/75 backdrop-blur-md">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
-      <a href="#top" class="flex items-center gap-3 min-w-[12rem]">
+  <nav class="sticky top-0 z-50 border-b border-slate-200 bg-white/80 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+      <a href="#top" class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-center overflow-hidden">
-          <svg viewBox="0 0 64 64" width="34" height="34" aria-label="SHOMER logo" role="img">
-            <defs>
-              <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#4f46e5"/>
-                <stop offset="1" stop-color="#7c3aed"/>
-              </linearGradient>
-            </defs>
+          <svg viewBox="0 0 64 64" width="34" height="34">
+            <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f46e5"/><stop offset="1" stop-color="#7c3aed"/></linearGradient></defs>
             <rect x="10" y="10" width="44" height="44" rx="14" fill="none" stroke="url(#g)" stroke-width="2"/>
-            <text x="32" y="42" text-anchor="middle" font-size="30" font-weight="800"
-                  font-family="Noto Sans Hebrew, Inter, system-ui" fill="#0f172a">ש</text>
+            <text x="32" y="42" text-anchor="middle" font-size="30" font-weight="800" fill="#0f172a">ש</text>
           </svg>
         </div>
         <div class="leading-tight">
-          <div class="text-xl sm:text-2xl font-bold tracking-tight heading-font">SHOMER</div>
-          <div class="text-[11px] text-slate-600" data-i18n="nav_subtitle">Karnobat Jewish Cemetery Preservation</div>
+          <div class="text-2xl font-bold tracking-tight heading-font">SHOMER</div>
+          <div class="text-[11px] text-slate-600" data-i18n="nav_subtitle">Society for Historical Observation and Maintenance of Eternal Remembrance</div>
         </div>
       </a>
 
-      <!-- Desktop Nav (✅ removed Action Plan link) -->
-      <div class="hidden lg:flex items-center gap-8 text-sm font-medium text-slate-700" id="desktop-nav">
+      <div class="hidden lg:flex items-center gap-8 text-sm font-medium text-slate-700">
         <a href="#about" class="hover:text-slate-900" data-i18n="nav_about">About</a>
-        <a href="#structure" class="hover:text-slate-900" data-i18n="nav_structure">Structure</a>
-        <a href="#board" class="hover:text-slate-900" data-i18n="nav_board">Board & Advisory</a>
-        <a href="#gallery" class="hover:text-slate-900" data-i18n="nav_gallery">Gallery</a>
+        <a href="#mission" class="hover:text-slate-900" data-i18n="nav_mission">Mission</a>
+        <a href="#board" class="hover:text-slate-900" data-i18n="nav_board">Leadership</a>
+        <a href="#volunteer" class="hover:text-slate-900" data-i18n="nav_volunteer">Get Involved</a>
+        <a href="#gallery" class="hover:text-slate-900" data-i18n="nav_gallery">Archive</a>
+        <a href="#location" class="hover:text-slate-900" data-i18n="nav_location">Site Map</a>
       </div>
 
-      <div class="flex items-center gap-2 sm:gap-3">
+      <div class="flex items-center gap-2">
         <div class="flex bg-white/70 border border-slate-200 rounded-3xl p-1 shadow-sm">
-          <button class="lang-btn active px-3 sm:px-4 py-2 text-xs font-mono rounded-3xl border border-transparent"
-                  id="lang-en" onclick="switchLanguage('en')">EN</button>
-          <button class="lang-btn px-3 sm:px-4 py-2 text-xs font-mono rounded-3xl border border-transparent"
-                  id="lang-bg" onclick="switchLanguage('bg')">BG</button>
-          <button class="lang-btn px-3 sm:px-4 py-2 text-xs font-mono rounded-3xl border border-transparent"
-                  id="lang-he" onclick="switchLanguage('he')">HE</button>
+          <button onclick="switchLanguage('en')" id="lang-en" class="lang-btn active px-3 py-2 text-xs font-mono rounded-3xl">EN</button>
+          <button onclick="switchLanguage('fr')" id="lang-fr" class="lang-btn px-3 py-2 text-xs font-mono rounded-3xl">FR</button>
+          <button onclick="switchLanguage('bg')" id="lang-bg" class="lang-btn px-3 py-2 text-xs font-mono rounded-3xl">BG</button>
+          <button onclick="switchLanguage('he')" id="lang-he" class="lang-btn px-3 py-2 text-xs font-mono rounded-3xl">HE</button>
         </div>
-
-        <button class="lg:hidden inline-flex items-center justify-center w-11 h-11 rounded-2xl border border-slate-200 bg-white/70 shadow-sm"
-                aria-label="Open menu"
-                onclick="toggleMobileMenu()">
+        <button onclick="toggleMobileMenu()" class="lg:hidden w-11 h-11 flex items-center justify-center rounded-2xl border border-slate-200 bg-white/70">
           <i class="fa-solid fa-bars text-slate-700"></i>
         </button>
       </div>
     </div>
 
-    <!-- Mobile menu (✅ removed Action Plan link) -->
-    <div id="mobile-menu" class="lg:hidden hidden border-t border-slate-200 bg-white/85 backdrop-blur-md">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-col gap-2 text-sm font-medium text-slate-700">
-        <a href="#about" class="py-2" onclick="closeMobileMenu()" data-i18n="nav_about">About</a>
-        <a href="#structure" class="py-2" onclick="closeMobileMenu()" data-i18n="nav_structure">Structure</a>
-        <a href="#board" class="py-2" onclick="closeMobileMenu()" data-i18n="nav_board">Board & Advisory</a>
-        <a href="#gallery" class="py-2" onclick="closeMobileMenu()" data-i18n="nav_gallery">Gallery</a>
+    <div id="mobile-menu" class="hidden lg:hidden border-t border-slate-200 bg-white/85 backdrop-blur-md">
+      <div class="px-6 py-4 flex flex-col gap-3 text-sm">
+        <a href="#about" onclick="closeMobileMenu()" data-i18n="nav_about" class="py-2">About</a>
+        <a href="#mission" onclick="closeMobileMenu()" data-i18n="nav_mission" class="py-2">Mission</a>
+        <a href="#board" onclick="closeMobileMenu()" data-i18n="nav_board" class="py-2">Leadership</a>
+        <a href="#volunteer" onclick="closeMobileMenu()" data-i18n="nav_volunteer" class="py-2">Get Involved</a>
+        <a href="#gallery" onclick="closeMobileMenu()" data-i18n="nav_gallery" class="py-2">Archive</a>
+        <a href="#location" onclick="closeMobileMenu()" data-i18n="nav_location" class="py-2">Site Map</a>
       </div>
     </div>
   </nav>
 
-  <!-- Hero -->
-  <header id="top" class="hero-bg min-h-[88vh] sm:min-h-screen flex items-center relative">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 text-center z-10">
-      <div class="inline-flex items-center gap-2 text-indigo-700 text-xs sm:text-sm font-mono mb-4 px-4 py-2 rounded-full border border-indigo-200 bg-white/60"
-           data-i18n="hero_kicker">
-        An international student-led initiative
+  <header id="top" class="hero-bg min-h-screen flex items-center relative">
+    <div class="max-w-4xl mx-auto px-6 text-center z-10">
+      <div class="inline-flex items-center gap-2 text-indigo-700 text-sm font-mono mb-6 px-5 py-2 rounded-full border border-indigo-200 bg-white/60" data-i18n="hero_kicker">
+        Student-led Heritage Initiative • International
       </div>
-
-      <h1 class="text-4xl sm:text-6xl md:text-7xl font-bold heading-font leading-[1.02] tracking-tight mb-5 text-slate-900"
-          data-i18n="hero_title">
-        Preserving memory. Restoring dignity.
+      <h1 class="text-5xl sm:text-6xl md:text-7xl font-bold heading-font leading-none tracking-tighter mb-6 text-slate-900" data-i18n="hero_title" style="white-space: pre-line;">
+        Preserving memory.
+Restoring dignity.
       </h1>
-
-      <p class="text-lg sm:text-2xl text-slate-700 max-w-3xl mx-auto mb-8"
-         data-i18n="hero_subtitle">
-        SHOMER is dedicated to the preservation, protection, and restoration of the historic Jewish cemetery of Karnobat, Bulgaria—safeguarding a centuries-old legacy and honoring those buried there.
+      <p class="text-xl sm:text-2xl text-slate-700 max-w-3xl mx-auto mb-10" data-i18n="hero_subtitle">
+        SHOMER — Society for Historical Observation and Maintenance of Eternal Remembrance — safeguards and restores the historic Jewish cemetery of Karnobat, Bulgaria.
       </p>
-
-      <div class="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4 mb-6">
-        <a href="#volunteer"
-           class="px-6 sm:px-10 py-4 sm:py-5 bg-slate-900 text-white font-semibold rounded-2xl text-base sm:text-lg hover:bg-slate-800 transition-all inline-flex items-center justify-center gap-3 shadow-sm"
-           data-i18n="hero_cta_volunteer">
-          Volunteer with SHOMER →
-        </a>
-        <a href="#gallery"
-           class="px-6 sm:px-10 py-4 sm:py-5 border-2 border-slate-900/80 text-slate-900 font-semibold rounded-2xl text-base sm:text-lg hover:bg-white/60 transition-all inline-flex items-center justify-center gap-3"
-           data-i18n="hero_cta_photos">
-          View the cemetery photos ↘
-        </a>
+      <div class="flex flex-col sm:flex-row gap-4 justify-center">
+        <a href="#volunteer" class="px-10 py-5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-2xl text-lg transition-all" data-i18n="hero_cta_volunteer">Join the Volunteer Network</a>
+        <a href="#gallery" class="px-10 py-5 border-2 border-slate-900 hover:bg-white/70 text-slate-900 font-semibold rounded-2xl text-lg transition-all" data-i18n="hero_cta_gallery">Explore the Site Archive</a>
       </div>
-
-      <p class="text-sm sm:text-base text-slate-600 max-w-3xl mx-auto"
-         data-i18n="hero_note">
-        We are not collecting donations yet. Our immediate focus is building a capable volunteer team, governance, and a credible restoration plan.
-      </p>
-    </div>
-
-    <div class="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-slate-600">
-      <div class="text-[11px] tracking-widest" data-i18n="hero_scroll">SCROLL TO EXPLORE</div>
-      <i class="fa-solid fa-chevron-down animate-bounce"></i>
     </div>
   </header>
 
-  <!-- Why Karnobat Matters -->
-  <section id="about" class="py-16 sm:py-24 bg-white">
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 text-center">
-      <h2 class="text-3xl sm:text-4xl heading-font font-bold mb-10 text-slate-900" data-i18n="why_title">Why Karnobat matters</h2>
-
-      <div class="grid md:grid-cols-3 gap-4 sm:gap-6">
-        <div class="bg-white/70 border border-slate-200 p-6 rounded-2xl shadow-sm">
-          <p class="text-slate-700" data-i18n="why_1">One of the largest Jewish necropolises in Bulgaria, used by Karnobat and nearby communities.</p>
-        </div>
-        <div class="bg-white/70 border border-slate-200 p-6 rounded-2xl shadow-sm">
-          <p class="text-slate-700" data-i18n="why_2">Historic tombstones are endangered by neglect, erosion, vandalism, and theft.</p>
-        </div>
-        <div class="bg-white/70 border border-slate-200 p-6 rounded-2xl shadow-sm">
-          <p class="text-slate-700" data-i18n="why_3">We focus on dignified preservation, documentation, and long-term protection.</p>
-        </div>
-      </div>
-
-      <!-- ✅ Replaced awkward CTA text with congruent buttons -->
-      <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
-        <a href="#board"
-           class="px-7 py-4 rounded-2xl bg-slate-900 text-white font-semibold shadow-sm hover:bg-slate-800 transition-all inline-flex items-center gap-3">
-          <i class="fa-solid fa-users"></i>
-          <span data-i18n="cta_join_board">Join the Board</span>
-          <span aria-hidden="true">→</span>
-        </a>
-
-        <a href="#board"
-           class="px-7 py-4 rounded-2xl border border-slate-300 bg-white/70 text-slate-900 font-semibold shadow-sm hover:bg-white transition-all inline-flex items-center gap-3">
-          <i class="fa-solid fa-scale-balanced"></i>
-          <span data-i18n="cta_join_advisory">Join the Advisory Council</span>
-          <span aria-hidden="true">→</span>
-        </a>
-      </div>
-
-      <p class="mt-6 text-slate-600" data-i18n="why_students">Students collaborating across Canada, Bulgaria, and Israel.</p>
-    </div>
-  </section>
-
-  <!-- Mission, Vision & Guiding Principles (✅ removed numbering in headings) -->
-  <section id="mission" class="py-16 sm:py-24 border-y border-slate-200 bg-slate-50">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6">
-      <h2 class="text-3xl sm:text-4xl heading-font font-bold mb-8 text-slate-900" data-i18n="mvp_title">Mission, Vision & Guiding Principles</h2>
-      <p class="mb-10 text-base sm:text-lg text-slate-600" data-i18n="mvp_sub">Who we are and what we stand for.</p>
-
-      <div class="space-y-10">
-        <div class="bg-white/70 border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-sm">
-          <h3 class="text-xl sm:text-2xl font-bold mb-3 text-slate-900" data-i18n="mvp_mission_h">Mission</h3>
-          <p class="text-slate-700" data-i18n="mvp_mission_p">
-            SHOMER is dedicated to the preservation, protection, and restoration of the historic Jewish cemetery of Karnobat, Bulgaria, ensuring dignity for those buried and safeguarding cultural and historical legacy for future generations.
-          </p>
-        </div>
-
-        <div class="bg-white/70 border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-sm">
-          <h3 class="text-xl sm:text-2xl font-bold mb-3 text-slate-900" data-i18n="mvp_vision_h">Vision</h3>
-          <p class="text-slate-700" data-i18n="mvp_vision_p">
-            To transform the Karnobat Jewish Cemetery from an endangered site into a protected, documented, and respectfully maintained place of memory, education, and historical continuity.
-          </p>
-        </div>
-
-        <div class="bg-white/70 border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-sm">
-          <h3 class="text-xl sm:text-2xl font-bold mb-3 text-slate-900" data-i18n="mvp_principles_h">Guiding Principles</h3>
-          <ul class="list-disc pl-6 space-y-2 text-slate-700">
-            <li data-i18n="gp_1">Dignity of the deceased is paramount.</li>
-            <li data-i18n="gp_2">Non-disturbance of graves; no invasive intervention without proper authority.</li>
-            <li data-i18n="gp_3">Historical accuracy and respect.</li>
-            <li data-i18n="gp_4">International collaboration.</li>
-            <li data-i18n="gp_5">Transparency in operations and governance.</li>
-          </ul>
-        </div>
-
-        <div class="bg-white/70 border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-sm">
-          <h3 class="text-xl sm:text-2xl font-bold mb-3 text-slate-900" data-i18n="mvp_taglines_h">Tagline Options</h3>
-          <ul class="list-disc pl-6 space-y-2 text-slate-700">
-            <li data-i18n="tl_1">Preserving memory. Restoring dignity.</li>
-            <li data-i18n="tl_2">Guardians of forgotten heritage.</li>
-            <li data-i18n="tl_3">Where history is remembered, not abandoned.</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Objectives & Organizational Structure (✅ removed numbering in headings) -->
-  <section id="structure" class="py-16 sm:py-24 bg-white">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6">
-      <h2 class="text-3xl sm:text-4xl heading-font font-bold mb-8 text-slate-900" data-i18n="struct_title">Objectives & Organizational Structure</h2>
-      <p class="mb-10 text-base sm:text-lg text-slate-600" data-i18n="struct_sub">How we work: restoration + research + outreach + protection.</p>
-
-      <div class="space-y-10">
-        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-sm">
-          <h3 class="text-xl sm:text-2xl font-bold mb-3 text-slate-900" data-i18n="struct_obj_h">Core Objectives</h3>
-          <ul class="list-disc pl-6 space-y-2 text-slate-700">
-            <li data-i18n="obj_1">Physical Preservation: stabilize and restore displaced or damaged tombstones; reduce erosion, vandalism, and theft; protective measures.</li>
-            <li data-i18n="obj_2">Documentation & Research: catalogue and digitize tombstones; preserve Hebrew and Ladino inscriptions; academic partnerships.</li>
-            <li data-i18n="obj_3">Cultural & Educational Outreach: public education; exhibitions; diaspora engagement (Canada, Israel, Europe).</li>
-            <li data-i18n="obj_4">Advocacy & Legal Protection: collaborate with authorities on heritage protection; long-term stewardship.</li>
-          </ul>
-        </div>
-
-        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-sm">
-          <h3 class="text-xl sm:text-2xl font-bold mb-3 text-slate-900" data-i18n="struct_org_h">Organizational Structure</h3>
-          <ul class="list-disc pl-6 space-y-2 text-slate-700">
-            <li data-i18n="org_1">Board of Directors: President, Vice-President, Director of Finance, Director of Research & Archives, Director of Restoration & Field Operations.</li>
-            <li data-i18n="org_2">Advisory Council (optional but powerful): historians, legal experts, conservation specialists, community leaders.</li>
-            <li data-i18n="org_3">Operational Teams: Field Ops (Bulgaria), Research & Digital Archive, Communications & Outreach, Partnerships.</li>
-          </ul>
-        </div>
-
-        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-sm">
-          <h3 class="text-xl sm:text-2xl font-bold mb-3 text-slate-900" data-i18n="struct_story_h">Founding Narrative</h3>
-          <p class="text-slate-700" data-i18n="struct_story_p">
-            The Karnobat Jewish Cemetery, established centuries ago and once containing over a thousand tombstones, is among the most historically significant yet severely neglected Jewish heritage sites in Bulgaria. SHOMER was founded by students across Canada, Bulgaria, and Israel to respond with urgency, respect, and long-term stewardship.
-          </p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Volunteer -->
-  <section id="volunteer" class="py-16 sm:py-24 border-y border-slate-200 bg-slate-50">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 text-center">
-      <h2 class="text-3xl sm:text-4xl heading-font font-bold mb-6 text-slate-900" data-i18n="vol_title">Volunteer Call to Action</h2>
-      <p class="text-base sm:text-xl text-slate-700 mb-8" data-i18n="vol_p">
-        We are currently recruiting volunteer leaders and advisors. If you can contribute time, expertise, or coordination support, we invite you to join SHOMER’s Board, Advisory Council, or operational teams.
+  <section id="about" class="py-20 bg-white">
+    <div class="max-w-6xl mx-auto px-6">
+      <h2 class="text-4xl heading-font font-bold text-center mb-6" data-i18n="why_title">Why Karnobat Matters</h2>
+      <p class="text-center text-slate-600 max-w-4xl mx-auto mb-12" data-i18n="about_acronym">
+        SHOMER stands for Society for Historical Observation and Maintenance of Eternal Remembrance, a heritage-preservation initiative dedicated to safeguarding the Jewish cemetery of Karnobat with reverence, historical accuracy, and communal responsibility.
       </p>
-      <a href="mailto:your.email@example.com"
-         class="px-7 sm:px-10 py-4 sm:py-5 bg-indigo-600 hover:bg-indigo-700 transition-all rounded-2xl font-semibold text-base sm:text-lg inline-flex items-center justify-center gap-3 shadow-sm text-white">
-        <i class="fa-solid fa-envelope"></i>
-        <span data-i18n="vol_email">Email to volunteer →</span>
-      </a>
-
-      <p class="mt-4 text-xs text-slate-500" data-i18n="vol_note">⟡ Replace the email address with your real inbox later.</p>
-    </div>
-  </section>
-
-  <!-- Board & Advisory -->
-  <section id="board" class="py-16 sm:py-24 bg-white">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6">
-      <h2 class="text-3xl sm:text-4xl heading-font font-bold mb-6 text-slate-900" data-i18n="board_title">Board of Directors & Advisory Council</h2>
-      <p class="mb-10 text-slate-600" data-i18n="board_sub">Placeholders — add names/photos later.</p>
-
-      <h3 class="text-xl sm:text-2xl font-bold mb-5 text-slate-900" data-i18n="board_bod_h">Board of Directors (Placeholders)</h3>
-      <p class="mb-8 text-slate-700" data-i18n="board_bod_p">We are seeking committed volunteers for governance roles.</p>
-
-      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-8">
-        <div class="bg-slate-50 border border-slate-200 p-6 rounded-2xl shadow-sm">
-          <div class="w-24 h-24 bg-slate-200 rounded-full mx-auto mb-4"></div>
-          <h4 class="text-lg sm:text-xl font-bold text-center mb-2 text-slate-900" data-i18n="role_pres">President</h4>
-          <p class="text-center text-slate-600 text-sm">Placeholder photo & bio line 1.<br>Bio line 2.<br>Bio line 3.</p>
+      <div class="grid md:grid-cols-3 gap-8">
+        <div class="bg-white border border-slate-200 p-8 rounded-3xl">
+          <p class="text-slate-700 leading-relaxed" data-i18n="why_1">One of Bulgaria’s largest historic Jewish cemeteries, serving multiple communities for centuries.</p>
         </div>
-
-        <div class="bg-slate-50 border border-slate-200 p-6 rounded-2xl shadow-sm">
-          <div class="w-24 h-24 bg-slate-200 rounded-full mx-auto mb-4"></div>
-          <h4 class="text-lg sm:text-xl font-bold text-center mb-2 text-slate-900" data-i18n="role_vp">Vice-President</h4>
-          <p class="text-center text-slate-600 text-sm">Placeholder photo & bio line 1.<br>Bio line 2.<br>Bio line 3.</p>
+        <div class="bg-white border border-slate-200 p-8 rounded-3xl">
+          <p class="text-slate-700 leading-relaxed" data-i18n="why_2">Tombstones face erosion, vandalism and neglect. Urgent restoration is needed.</p>
         </div>
-
-        <div class="bg-slate-50 border border-slate-200 p-6 rounded-2xl shadow-sm">
-          <div class="w-24 h-24 bg-slate-200 rounded-full mx-auto mb-4"></div>
-          <h4 class="text-lg sm:text-xl font-bold text-center mb-2 text-slate-900" data-i18n="role_fin">Director of Finance</h4>
-          <p class="text-center text-slate-600 text-sm">Placeholder photo & bio line 1.<br>Bio line 2.<br>Bio line 3.</p>
-        </div>
-
-        <div class="bg-slate-50 border border-slate-200 p-6 rounded-2xl shadow-sm">
-          <div class="w-24 h-24 bg-slate-200 rounded-full mx-auto mb-4"></div>
-          <h4 class="text-lg sm:text-xl font-bold text-center mb-2 text-slate-900" data-i18n="role_arch">Research & Archives</h4>
-          <p class="text-center text-slate-600 text-sm">Placeholder photo & bio line 1.<br>Bio line 2.<br>Bio line 3.</p>
-        </div>
-
-        <div class="bg-slate-50 border border-slate-200 p-6 rounded-2xl shadow-sm">
-          <div class="w-24 h-24 bg-slate-200 rounded-full mx-auto mb-4"></div>
-          <h4 class="text-lg sm:text-xl font-bold text-center mb-2 text-slate-900" data-i18n="role_ops">Restoration & Field Ops</h4>
-          <p class="text-center text-slate-600 text-sm">Placeholder photo & bio line 1.<br>Bio line 2.<br>Bio line 3.</p>
-        </div>
-
-        <div class="bg-slate-50 border border-slate-200 p-6 rounded-2xl shadow-sm">
-          <div class="w-24 h-24 bg-slate-200 rounded-full mx-auto mb-4"></div>
-          <h4 class="text-lg sm:text-xl font-bold text-center mb-2 text-slate-900" data-i18n="role_comms">Communications</h4>
-          <p class="text-center text-slate-600 text-sm">Placeholder photo & bio line 1.<br>Bio line 2.<br>Bio line 3.</p>
-        </div>
-      </div>
-
-      <h3 class="text-xl sm:text-2xl font-bold mt-14 mb-5 text-slate-900" data-i18n="board_adv_h">Advisory Council (Placeholders)</h3>
-      <p class="mb-8 text-slate-700" data-i18n="board_adv_p">We welcome historians, legal experts, conservators, and community leaders.</p>
-
-      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-8">
-        <div class="bg-slate-50 border border-slate-200 p-6 rounded-2xl shadow-sm">
-          <div class="w-24 h-24 bg-slate-200 rounded-full mx-auto mb-4"></div>
-          <h4 class="text-lg sm:text-xl font-bold text-center mb-2 text-slate-900" data-i18n="adv_1">Historian (Jewish / Balkan history)</h4>
-          <p class="text-center text-slate-600 text-sm">Placeholder photo & bio line 1.<br>Bio line 2.<br>Bio line 3.</p>
-        </div>
-
-        <div class="bg-slate-50 border border-slate-200 p-6 rounded-2xl shadow-sm">
-          <div class="w-24 h-24 bg-slate-200 rounded-full mx-auto mb-4"></div>
-          <h4 class="text-lg sm:text-xl font-bold text-center mb-2 text-slate-900" data-i18n="adv_2">Legal Advisor (heritage / nonprofit)</h4>
-          <p class="text-center text-slate-600 text-sm">Placeholder photo & bio line 1.<br>Bio line 2.<br>Bio line 3.</p>
-        </div>
-
-        <div class="bg-slate-50 border border-slate-200 p-6 rounded-2xl shadow-sm">
-          <div class="w-24 h-24 bg-slate-200 rounded-full mx-auto mb-4"></div>
-          <h4 class="text-lg sm:text-xl font-bold text-center mb-2 text-slate-900" data-i18n="adv_3">Conservation Specialist</h4>
-          <p class="text-center text-slate-600 text-sm">Placeholder photo & bio line 1.<br>Bio line 2.<br>Bio line 3.</p>
-        </div>
-
-        <div class="bg-slate-50 border border-slate-200 p-6 rounded-2xl shadow-sm">
-          <div class="w-24 h-24 bg-slate-200 rounded-full mx-auto mb-4"></div>
-          <h4 class="text-lg sm:text-xl font-bold text-center mb-2 text-slate-900" data-i18n="adv_4">Community Leader</h4>
-          <p class="text-center text-slate-600 text-sm">Placeholder photo & bio line 1.<br>Bio line 2.<br>Bio line 3.</p>
-        </div>
-
-        <div class="bg-slate-50 border border-slate-200 p-6 rounded-2xl shadow-sm">
-          <div class="w-24 h-24 bg-slate-200 rounded-full mx-auto mb-4"></div>
-          <h4 class="text-lg sm:text-xl font-bold text-center mb-2 text-slate-900" data-i18n="adv_5">Archivist / Digital Humanities</h4>
-          <p class="text-center text-slate-600 text-sm">Placeholder photo & bio line 1.<br>Bio line 2.<br>Bio line 3.</p>
-        </div>
-
-        <div class="bg-slate-50 border border-slate-200 p-6 rounded-2xl shadow-sm">
-          <div class="w-24 h-24 bg-slate-200 rounded-full mx-auto mb-4"></div>
-          <h4 class="text-lg sm:text-xl font-bold text-center mb-2 text-slate-900" data-i18n="adv_6">Public Affairs / Partnerships</h4>
-          <p class="text-center text-slate-600 text-sm">Placeholder photo & bio line 1.<br>Bio line 2.<br>Bio line 3.</p>
+        <div class="bg-white border border-slate-200 p-8 rounded-3xl">
+          <p class="text-slate-700 leading-relaxed" data-i18n="why_3">We document, protect and restore with dignity and respect for future generations.</p>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- ✅ Removed Immediate Action Plan section entirely -->
+  <section id="mission" class="py-20 bg-slate-50">
+    <div class="max-w-5xl mx-auto px-6">
+      <div class="bg-white border border-slate-200 rounded-3xl p-8 sm:p-10 shadow-sm">
+        <div class="max-w-3xl mx-auto">
+          <h3 class="text-3xl heading-font font-bold mb-5 text-center" data-i18n="scholarship_h">Cemetery & Scholarship</h3>
 
-  <!-- Gallery (✅ title simplified to “Gallery”) -->
-  <section id="gallery" class="py-16 sm:py-24 bg-white">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6">
-      <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
+          <p class="text-slate-700 leading-relaxed mb-4" data-i18n="scholarship_p1">
+            Karnobat is home to the largest Jewish necropolis in Bulgaria, established by the Jews of Karnobat—present in the town since the 16th century—and used by neighbouring communities as well.
+          </p>
+
+          <p class="text-slate-700 leading-relaxed mb-4" data-i18n="scholarship_p2">
+            The cemetery once contained more than 1,000 tombstones. The earliest known marker dates to 1686, and later burials include those from the Balkan Wars (1912–1913) and the First World War.
+          </p>
+
+          <p class="text-slate-700 leading-relaxed" data-i18n="scholarship_p3">
+            SHOMER’s preservation work is anchored in documentation and research, including Zvi Keren’s 2014 study <em>The Jews of Karnobat</em>, described as the first study of the Karnobat Jewish community and its cemetery—and the first study of a Jewish cemetery in Bulgaria.
+          </p>
+
+          <div class="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
+            <a href="https://jewishbalkans.eu/listing/karnobat-abandoned-cemetery" target="_blank"
+               class="px-6 py-3 rounded-2xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-sm font-semibold flex items-center justify-center gap-2">
+              <span data-i18n="scholarship_link1">Read the site overview</span> <span aria-hidden="true">↗</span>
+            </a>
+            <a href="https://knizhen-pazar.net/products/books/3569186-the-jews-of-karnobat" target="_blank"
+               class="px-6 py-3 rounded-2xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-sm font-semibold flex items-center justify-center gap-2">
+              <span data-i18n="scholarship_link2">See the book listing</span> <span aria-hidden="true">↗</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+<section id="volunteer" class="py-20 bg-white">
+    <div class="max-w-2xl mx-auto px-6 text-center">
+      <h2 class="text-4xl heading-font font-bold mb-6" data-i18n="vol_title">Get Involved</h2>
+      <p class="text-xl text-slate-600 mb-12" data-i18n="vol_p">Support the stewardship of this important heritage site. Students, professionals and community members are warmly invited to participate.</p>
+
+      <form id="volunteer-form" class="space-y-6 text-left" onsubmit="handleVolunteerSubmit(event)">
+        <div class="grid md:grid-cols-2 gap-6">
+          <input type="text" id="name" data-i18n-ph="form_name" placeholder="Full name" class="w-full px-5 py-4 border border-slate-200 rounded-2xl focus:outline-none focus:border-indigo-500" required>
+          <input type="email" id="email" data-i18n-ph="form_email" placeholder="Email address" class="w-full px-5 py-4 border border-slate-200 rounded-2xl focus:outline-none focus:border-indigo-500" required>
+        </div>
+        <select id="role" class="w-full px-5 py-4 border border-slate-200 rounded-2xl focus:outline-none focus:border-indigo-500">
+          <option value="" data-i18n="form_role_placeholder">Area of interest…</option>
+          <option value="board" data-i18n="role_board_interest">Board Governance / Executive Leadership</option>
+          <option value="advisory" data-i18n="role_advisory_interest">Advisory Council</option>
+          <option value="research" data-i18n="role_research_interest">Research & Documentation</option>
+          <option value="restoration" data-i18n="role_restoration_interest">Restoration & Site Stewardship</option>
+          <option value="communications" data-i18n="role_communications_interest">Communications & Public Outreach</option>
+        </select>
+        <textarea id="message" rows="4" data-i18n-ph="form_message" placeholder="Tell us how you’d like to help…" class="w-full px-5 py-4 border border-slate-200 rounded-2xl focus:outline-none focus:border-indigo-500"></textarea>
+        <button type="submit" data-i18n="form_submit" class="w-full py-5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-2xl text-lg transition-all">Submit Expression of Interest</button>
+      </form>
+    </div>
+  </section>
+
+  <section id="board" class="py-20 bg-slate-50">
+    <div class="max-w-7xl mx-auto px-6">
+      <h2 class="text-4xl heading-font font-bold text-center mb-12" data-i18n="board_title">Board of Directors & Advisory Council</h2>
+      <div class="grid md:grid-cols-3 gap-8">
+        <div class="bg-white border border-slate-200 p-8 rounded-3xl text-center">
+          <div class="w-20 h-20 bg-slate-200 rounded-full mx-auto mb-6"></div>
+          <h4 class="font-semibold text-xl" data-i18n="role_pres">Chair</h4>
+        </div>
+        <div class="bg-white border border-slate-200 p-8 rounded-3xl text-center">
+          <div class="w-20 h-20 bg-slate-200 rounded-full mx-auto mb-6"></div>
+          <h4 class="font-semibold text-xl" data-i18n="role_vp">Vice-Chair</h4>
+        </div>
+        <div class="bg-white border border-slate-200 p-8 rounded-3xl text-center">
+          <div class="w-20 h-20 bg-slate-200 rounded-full mx-auto mb-6"></div>
+          <h4 class="font-semibold text-xl" data-i18n="role_ops">Director of Restoration & Site Stewardship</h4>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="gallery" class="py-20 bg-white">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="flex justify-between items-end mb-10 gap-4">
         <div>
-          <div class="text-indigo-700 text-sm font-mono" data-i18n="gal_kicker">Cemetery Photo Archive</div>
-          <h2 class="text-3xl sm:text-4xl heading-font font-bold tracking-tight text-slate-900" data-i18n="gal_title">Gallery</h2>
-          <a href="https://commons.wikimedia.org/wiki/Category:Photographs_of_Jewish_Cemetery_in_Karnobat_by_Oleg_Yunakov"
-             target="_blank"
-             class="mt-3 inline-flex items-center gap-2 text-sm text-slate-700 hover:text-indigo-700 transition-colors">
-            <span data-i18n="gal_link">Open full category on Wikimedia Commons ↗</span>
-          </a>
+          <div class="text-indigo-600 text-sm font-mono" data-i18n="gal_kicker">Cemetery Archive</div>
+          <h2 class="text-4xl heading-font font-bold" data-i18n="gal_title">Photographic Archive</h2>
+        </div>
+        <a href="https://commons.wikimedia.org/wiki/Category:Photographs_of_Jewish_Cemetery_in_Karnobat_by_Oleg_Yunakov" target="_blank" class="text-sm text-slate-500 hover:text-indigo-600 flex items-center gap-2">
+          <span data-i18n="gal_full_archive">View Full Archive</span> <span class="text-xl">↗</span>
+        </a>
+      </div>
+
+      <div id="gallery-grid" class="gallery-grid"></div>
+    </div>
+  </section>
+
+  <section id="credits" class="py-16 bg-slate-50 border-y border-slate-200">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="max-w-4xl">
+        <div class="text-indigo-600 text-sm font-mono mb-3" data-i18n="credits_kicker">Rights & Attribution</div>
+        <h3 class="text-3xl heading-font font-bold mb-5" data-i18n="credits_title">Photo Credits & Source Archive</h3>
+        <p class="text-slate-700 leading-relaxed mb-4" data-i18n="credits_body">Selected gallery images are hosted locally on this site for reliability. Source archive: photographs of the Jewish Cemetery in Karnobat by Oleg Yunakov on Wikimedia Commons.</p>
+        <p class="text-slate-600 leading-relaxed" data-i18n="credits_note">Attribution for reused images: Oleg Yunakov / CC BY-SA 4.0. Please retain author credit, source link, and license notice when reusing site files.</p>
+        <div class="flex flex-wrap gap-4 mt-6">
+          <a href="./credits.html" class="px-6 py-3 bg-white border border-slate-300 rounded-2xl text-sm font-semibold text-slate-800 hover:bg-slate-100" data-i18n="credits_link">View source and licensing notes</a>
+          <a href="https://commons.wikimedia.org/wiki/Category:Photographs_of_Jewish_Cemetery_in_Karnobat_by_Oleg_Yunakov" target="_blank" class="px-6 py-3 bg-slate-900 rounded-2xl text-sm font-semibold text-white hover:bg-slate-800" data-i18n="gal_full_archive">View Full Archive</a>
         </div>
       </div>
+    </div>
+  </section>
 
-      <div id="gallery-container" class="gallery-container"></div>
-
-      <div id="loading" class="hidden py-12 flex justify-center items-center gap-3 text-slate-600">
-        <div class="w-5 h-5 border-2 border-slate-300 border-t-transparent rounded-full animate-spin"></div>
-        <span class="text-sm font-medium" data-i18n="gal_loading">Loading images…</span>
-      </div>
+  <section id="location" class="py-20 bg-white">
+    <div class="max-w-7xl mx-auto px-6">
+      <h2 class="text-4xl heading-font font-bold text-center mb-10" data-i18n="nav_location">Site Map</h2>
+      <button onclick="zoomToCemetery()" class="zoom-button" data-i18n="map_zoom_btn">Locate the Cemetery</button>
+      <div id="map"></div>
     </div>
   </section>
 
   <footer class="bg-slate-50 border-t border-slate-200 py-12">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6">
-      <div class="flex flex-col md:flex-row justify-between items-center gap-6">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-center">
-            <span class="text-2xl font-bold" style="color:var(--primary); font-family:'Noto Sans Hebrew','Inter',sans-serif;">ש</span>
-          </div>
-          <div class="text-xl sm:text-2xl font-bold heading-font">SHOMER</div>
-        </div>
-
-        <div class="text-center md:text-right text-xs text-slate-600 max-w-3xl" data-i18n="footer_text">
-          © 2026 SHOMER — Society for Historical Oversight and Maintenance of Eternal Remembrance<br>
-          Built for coordination, documentation, and volunteer governance (no donations collected).<br>
-          Images are loaded directly from Wikimedia Commons and remain subject to their respective licenses and attribution requirements.
-        </div>
-      </div>
+    <div class="max-w-7xl mx-auto px-6 text-center text-xs text-slate-500 leading-6">
+      <span data-i18n="footer_line1">© 2026 SHOMER — Society for Historical Observation and Maintenance of Eternal Remembrance. A student-led heritage preservation initiative dedicated to the Jewish cemetery of Karnobat, Bulgaria.</span><br>
+      <span data-i18n="footer_line2">SHOMER advances documentation, stewardship, and restoration through volunteer service, historical responsibility, and respect for the dignity of the deceased.</span>
     </div>
   </footer>
 
   <script>
-    // --- i18n ---
     const translations = {
       en: {
-        nav_subtitle: "Society for Historic Observation and Maintenance of Eternal Remembrance",
+        nav_subtitle: "Society for Historical Observation and Maintenance of Eternal Remembrance",
         nav_about: "About",
-        nav_structure: "Structure",
-        nav_board: "Board & Advisory",
-        nav_gallery: "Gallery",
+        nav_mission: "Mission",
+        nav_board: "Leadership",
+        nav_volunteer: "Get Involved",
+        nav_gallery: "Archive",
+        nav_location: "Site Map",
 
-        hero_kicker: "An international student-led initiative",
-        hero_title: "Preserving memory. Restoring dignity.",
-        hero_subtitle: "SHOMER is dedicated to the preservation, protection, and restoration of the historic Jewish cemetery of Karnobat, Bulgaria—safeguarding a centuries-old legacy and honoring those buried there.",
-        hero_cta_volunteer: "Volunteer with SHOMER →",
-        hero_cta_photos: "View the cemetery photos →",
-        hero_note: "We are not collecting donations yet. Our immediate focus is building a capable volunteer team, governance, and a credible restoration plan.",
-        hero_scroll: "SCROLL TO EXPLORE",
+        hero_kicker: "Student-led Heritage Initiative • International",
+        hero_title: "Preserving memory.\nRestoring dignity.",
+        hero_subtitle: "SHOMER — Society for Historical Observation and Maintenance of Eternal Remembrance — safeguards and restores the historic Jewish cemetery of Karnobat, Bulgaria.",
+        hero_cta_volunteer: "Join the Volunteer Network",
+        hero_cta_gallery: "Explore the Site Archive",
 
-        why_title: "Why Karnobat matters",
-        why_1: "One of the largest Jewish necropolises in Bulgaria, used by Karnobat and nearby communities.",
-        why_2: "Historic tombstones are endangered by neglect, erosion, vandalism, and theft.",
-        why_3: "We focus on dignified preservation, documentation, and long-term protection.",
-        cta_join_board: "Join the Board",
-        cta_join_advisory: "Join the Advisory Council",
-        why_students: "Students collaborating across Canada, Bulgaria, and Israel.",
+        why_title: "Why Karnobat Matters",
+        about_acronym: "SHOMER stands for Society for Historical Observation and Maintenance of Eternal Remembrance, a heritage-preservation initiative dedicated to safeguarding the Jewish cemetery of Karnobat with reverence, historical accuracy, and communal responsibility.",
+        why_1: "One of Bulgaria’s largest historic Jewish cemeteries, serving multiple communities for centuries.",
+        why_2: "Tombstones face erosion, vandalism and neglect. Urgent restoration is needed.",
+        why_3: "We document, protect and restore with dignity and respect for future generations.",
 
-        mvp_title: "Mission, Vision & Guiding Principles",
-        mvp_sub: "Who we are and what we stand for.",
         mvp_mission_h: "Mission",
-        mvp_mission_p: "SHOMER is dedicated to the preservation, protection, and restoration of the historic Jewish cemetery of Karnobat, Bulgaria, ensuring dignity for those buried and safeguarding cultural and historical legacy for future generations.",
+        mvp_mission_p: "To preserve, document and restore the Karnobat Jewish Cemetery with dignity and care.",
         mvp_vision_h: "Vision",
-        mvp_vision_p: "To transform the Karnobat Jewish Cemetery from an endangered site into a protected, documented, and respectfully maintained place of memory, education, and historical continuity.",
-        mvp_principles_h: "Guiding Principles",
-        gp_1: "Dignity of the deceased is paramount.",
-        gp_2: "Non-disturbance of graves; no invasive intervention without proper authority.",
-        gp_3: "Historical accuracy and respect.",
-        gp_4: "International collaboration.",
-        gp_5: "Transparency in operations and governance.",
-        mvp_taglines_h: "Tagline Options",
-        tl_1: "Preserving memory. Restoring dignity.",
-        tl_2: "Guardians of forgotten heritage.",
-        tl_3: "Where history is remembered, not abandoned.",
+        mvp_vision_p: "A protected, documented site of memory, education and historical continuity.",
+        mvp_principles_h: "Principles",
+        gp_1: "Dignity of the deceased is paramount",
+        gp_2: "No disturbance of graves without authority",
+        gp_3: "Historical accuracy and respect",
+        scholarship_h: "Cemetery & Scholarship",
+        scholarship_p1: "Karnobat is home to the largest Jewish necropolis in Bulgaria, established by the Jews of Karnobat—present in the town since the 16th century—and used by neighbouring communities as well.",
+        scholarship_p2: "The cemetery once contained more than 1,000 tombstones. The earliest known marker dates to 1686, and later burials include those from the Balkan Wars (1912–1913) and the First World War.",
+        scholarship_p3: "SHOMER’s preservation work is anchored in documentation and research, including Zvi Keren’s 2014 study \"The Jews of Karnobat\", described as the first study of the Karnobat Jewish community and its cemetery—and the first study of a Jewish cemetery in Bulgaria.",
+        scholarship_link1: "Read the site overview",
+        scholarship_link2: "See the book listing",
 
-        struct_title: "Objectives & Organizational Structure",
-        struct_sub: "How we work: restoration + research + outreach + protection.",
-        struct_obj_h: "Core Objectives",
-        obj_1: "Physical Preservation: stabilize and restore displaced or damaged tombstones; reduce erosion, vandalism, and theft; protective measures.",
-        obj_2: "Documentation & Research: catalogue and digitize tombstones; preserve Hebrew and Ladino inscriptions; academic partnerships.",
-        obj_3: "Cultural & Educational Outreach: public education; exhibitions; diaspora engagement (Canada, Israel, Europe).",
-        obj_4: "Advocacy & Legal Protection: collaborate with authorities on heritage protection; long-term stewardship.",
-        struct_org_h: "Organizational Structure",
-        org_1: "Board of Directors: President, Vice-President, Director of Finance, Director of Research & Archives, Director of Restoration & Field Operations.",
-        org_2: "Advisory Council (optional but powerful): historians, legal experts, conservation specialists, community leaders.",
-        org_3: "Operational Teams: Field Ops (Bulgaria), Research & Digital Archive, Communications & Outreach, Partnerships.",
-        struct_story_h: "Founding Narrative",
-        struct_story_p: "The Karnobat Jewish Cemetery, established centuries ago and once containing over a thousand tombstones, is among the most historically significant yet severely neglected Jewish heritage sites in Bulgaria. SHOMER was founded by students across Canada, Bulgaria, and Israel to respond with urgency, respect, and long-term stewardship.",
-
-        vol_title: "Volunteer Call to Action",
-        vol_p: "We are currently recruiting volunteer leaders and advisors. If you can contribute time, expertise, or coordination support, we invite you to join SHOMER’s Board, Advisory Council, or operational teams.",
-        vol_email: "Email to volunteer →",
-        vol_note: "⟡ Replace the email address with your real inbox later.",
+        vol_title: "Get Involved",
+        vol_p: "Support the stewardship of this important heritage site. Students, professionals and community members are warmly invited to participate.",
+        form_name: "Full name",
+        form_email: "Email address",
+        form_role_placeholder: "Area of interest…",
+        role_board_interest: "Board Governance / Executive Leadership",
+        role_advisory_interest: "Advisory Council",
+        role_research_interest: "Research & Documentation",
+        role_restoration_interest: "Restoration & Site Stewardship",
+        role_communications_interest: "Communications & Public Outreach",
+        form_message: "Tell us how you would like to contribute…",
+        form_submit: "Submit Expression of Interest",
+        form_thanks: "Thank you",
+        form_received: "Your expression of interest has been received. We will contact you soon at",
 
         board_title: "Board of Directors & Advisory Council",
-        board_sub: "Placeholders — add names/photos later.",
-        board_bod_h: "Board of Directors (Placeholders)",
-        board_bod_p: "We are seeking committed volunteers for governance roles.",
-        role_pres: "President",
-        role_vp: "Vice-President",
-        role_fin: "Director of Finance",
-        role_arch: "Research & Archives",
-        role_ops: "Restoration & Field Ops",
-        role_comms: "Communications",
-        board_adv_h: "Advisory Council (Placeholders)",
-        board_adv_p: "We welcome historians, legal experts, conservators, and community leaders.",
-        adv_1: "Historian (Jewish / Balkan history)",
-        adv_2: "Legal Advisor (heritage / nonprofit)",
-        adv_3: "Conservation Specialist",
-        adv_4: "Community Leader",
-        adv_5: "Archivist / Digital Humanities",
-        adv_6: "Public Affairs / Partnerships",
+        role_pres: "Chair",
+        role_vp: "Vice-Chair",
+        role_ops: "Director of Restoration & Site Stewardship",
 
-        gal_kicker: "Cemetery Photo Archive",
-        gal_title: "Gallery",
-        gal_link: "Open full category on Wikimedia Commons ↗",
-        gal_loading: "Loading images…",
+        gal_kicker: "Cemetery Archive",
+        gal_title: "Photographic Archive",
+        gal_full_archive: "View Full Archive",
+        credits_kicker: "Rights & Attribution",
+        credits_title: "Photo Credits & Source Archive",
+        credits_body: "Selected gallery images are hosted locally on this site for reliability. Source archive: photographs of the Jewish Cemetery in Karnobat by Oleg Yunakov on Wikimedia Commons.",
+        credits_note: "Attribution for reused images: Oleg Yunakov / CC BY-SA 4.0. Please retain author credit, source link, and license notice when reusing site files.",
+        credits_link: "View source and licensing notes",
 
-        footer_text:
-`© 2026 SHOMER — Society for Historical Oversight and Maintenance of Eternal Remembrance
-Built for coordination, documentation, and volunteer governance (no donations collected).
-Images are loaded directly from Wikimedia Commons and remain subject to their respective licenses and attribution requirements.`
+        map_zoom_btn: "Locate the Cemetery",
+        map_popup: "Karnobat Jewish Cemetery",
+
+        footer_line1: "© 2026 SHOMER — Society for Historical Observation and Maintenance of Eternal Remembrance. A student-led heritage preservation initiative dedicated to the Jewish cemetery of Karnobat, Bulgaria.",
+        footer_line2: "SHOMER advances documentation, stewardship, and restoration through volunteer service, historical responsibility, and respect for the dignity of the deceased."
+      },
+
+      fr: {
+        nav_subtitle: "Société pour l’observation historique et l’entretien du souvenir éternel",
+        nav_about: "À propos",
+        nav_mission: "Mission",
+        nav_board: "Direction",
+        nav_volunteer: "S’impliquer",
+        nav_gallery: "Archives",
+        nav_location: "Carte du site",
+
+        hero_kicker: "Initiative patrimoniale étudiante • Internationale",
+        hero_title: "Préserver la mémoire.\nRestaurer la dignité.",
+        hero_subtitle: "SHOMER — Société pour l’observation historique et l’entretien du souvenir éternel — protège et restaure le cimetière juif historique de Karnobat, en Bulgarie.",
+        hero_cta_volunteer: "Rejoindre le réseau de bénévoles",
+        hero_cta_gallery: "Explorer les archives du site",
+
+        why_title: "Pourquoi Karnobat est important",
+        about_acronym: "SHOMER signifie Société pour l’observation historique et l’entretien du souvenir éternel, une initiative de préservation du patrimoine consacrée à la sauvegarde du cimetière juif de Karnobat avec révérence, rigueur historique et responsabilité communautaire.",
+        why_1: "L’un des plus grands cimetières juifs historiques de Bulgarie, au service de plusieurs communautés depuis des siècles.",
+        why_2: "Les pierres tombales subissent l’érosion, le vandalisme et la négligence. Une restauration urgente est nécessaire.",
+        why_3: "Nous documentons, protégeons et restaurons avec dignité et respect pour les générations futures.",
+
+        mvp_mission_h: "Mission",
+        mvp_mission_p: "Préserver, documenter et restaurer le cimetière juif de Karnobat avec dignité et soin.",
+        mvp_vision_h: "Vision",
+        mvp_vision_p: "Un site protégé et documenté, lieu de mémoire, d’éducation et de continuité historique.",
+        mvp_principles_h: "Principes",
+        gp_1: "La dignité des défunts est primordiale",
+        gp_2: "Aucune perturbation des tombes sans autorisation",
+        gp_3: "Exactitude historique et respect",
+        scholarship_h: "Le cimetière et la recherche",
+        scholarship_p1: "Karnobat abrite la plus grande nécropole juive de Bulgarie, créée par les Juifs de Karnobat — présents en ville depuis le XVIe siècle — et utilisée aussi par des communautés voisines.",
+        scholarship_p2: "Le site comptait autrefois plus de 1 000 pierres tombales. La plus ancienne connue date de 1686, et des inhumations plus récentes incluent celles des guerres balkaniques (1912–1913) et de la Première Guerre mondiale.",
+        scholarship_p3: "Le travail de SHOMER s’appuie sur la documentation et la recherche, notamment l’étude de Zvi Keren (2014) \"The Jews of Karnobat\", décrite comme la première étude de la communauté juive de Karnobat et de son cimetière — et la première étude d’un cimetière juif en Bulgarie.",
+        scholarship_link1: "Lire la présentation du site",
+        scholarship_link2: "Voir la fiche du livre",
+
+        vol_title: "S’impliquer",
+        vol_p: "Soutenez la gestion responsable de ce site patrimonial important. Étudiants, professionnels et membres de la communauté sont chaleureusement invités à participer.",
+        form_name: "Nom complet",
+        form_email: "Adresse e-mail",
+        form_role_placeholder: "Champ d’intérêt…",
+        role_board_interest: "Gouvernance du conseil / direction exécutive",
+        role_advisory_interest: "Comité consultatif",
+        role_research_interest: "Recherche et documentation",
+        role_restoration_interest: "Restauration et gestion du site",
+        role_communications_interest: "Communication et sensibilisation publique",
+        form_message: "Indiquez-nous comment vous souhaiteriez contribuer…",
+        form_submit: "Soumettre une marque d’intérêt",
+        form_thanks: "Merci",
+        form_received: "Votre marque d’intérêt a bien été reçue. Nous vous contacterons bientôt à",
+
+        board_title: "Conseil d’administration et comité consultatif",
+        role_pres: "Présidence",
+        role_vp: "Vice-présidence",
+        role_ops: "Direction de la restauration et de la gestion du site",
+
+        gal_kicker: "Archives du cimetière",
+        gal_title: "Archives photographiques",
+        gal_full_archive: "Voir les archives complètes",
+        credits_kicker: "Droits et attribution",
+        credits_title: "Crédits photographiques et archive source",
+        credits_body: "Les images de la galerie sont hébergées localement sur ce site pour une meilleure fiabilité. Archive source : photographies du cimetière juif de Karnobat par Oleg Yunakov sur Wikimedia Commons.",
+        credits_note: "Attribution pour toute réutilisation : Oleg Yunakov / CC BY-SA 4.0. Merci de conserver le nom de l’auteur, le lien vers la source et la mention de licence lors de toute réutilisation.",
+        credits_link: "Voir les sources et la licence",
+
+        map_zoom_btn: "Localiser le cimetière",
+        map_popup: "Cimetière juif de Karnobat",
+
+        footer_line1: "© 2026 SHOMER — Société pour l’observation historique et l’entretien du souvenir éternel. Initiative étudiante de préservation du patrimoine dédiée au cimetière juif de Karnobat, en Bulgarie.",
+        footer_line2: "SHOMER fait progresser la documentation, la gestion responsable et la restauration par le service bénévole, la responsabilité historique et le respect de la dignité des défunts."
       },
 
       bg: {
-        nav_subtitle: "Опазване на еврейското гробище в Карнобат",
-        nav_about: "За каузата",
-        nav_structure: "Структура",
-        nav_board: "Управление и съвет",
-        nav_gallery: "Галерия",
+        nav_subtitle: "Общество за историческо наблюдение и поддържане на вечното възпоменание",
+        nav_about: "За нас",
+        nav_mission: "Мисия",
+        nav_board: "Ръководство",
+        nav_volunteer: "Включете се",
+        nav_gallery: "Архив",
+        nav_location: "Карта на обекта",
 
-        hero_kicker: "Международна студентска инициатива",
-        hero_title: "Съхраняваме паметта. Възстановяваме достойнството.",
-        hero_subtitle: "SHOMER е посветена на опазването, защитата и възстановяването на историческото еврейско гробище в Карнобат, България — съхраняваме наследство от векове и отдаваме почит на погребаните там.",
-        hero_cta_volunteer: "Стани доброволец в SHOMER →",
-        hero_cta_photos: "Виж снимките на гробището ↘",
-        hero_note: "Все още не събираме дарения. Непосредственият ни фокус е изграждането на силен екип от доброволци, управление и надежден план за възстановяване.",
-        hero_scroll: "СКРОЛИРАЙ ЗА ДА РАЗГЛЕДАШ",
+        hero_kicker: "Студентска инициатива за наследство • Международна",
+        hero_title: "Да пазим паметта.\nДа възстановим достойнството.",
+        hero_subtitle: "SHOMER — Общество за историческо наблюдение и поддържане на вечното възпоменание — опазва и възстановява историческото еврейско гробище в Карнобат, България.",
+        hero_cta_volunteer: "Присъединете се към мрежата от доброволци",
+        hero_cta_gallery: "Разгледайте архива на обекта",
 
         why_title: "Защо Карнобат е важен",
-        why_1: "Един от най-големите еврейски некрополи в България, използван от Карнобат и съседни общности.",
-        why_2: "Историческите надгробни камъни са застрашени от занемаряване, ерозия, вандализъм и кражби.",
-        why_3: "Фокусът ни е достойно опазване, документиране и дългосрочна защита.",
-        cta_join_board: "Включи се в Управителния съвет",
-        cta_join_advisory: "Включи се в Консултативния съвет",
-        why_students: "Студенти си сътрудничат между Канада, България и Израел.",
+        about_acronym: "SHOMER означава Общество за историческо наблюдение и поддържане на вечното възпоменание — инициатива за опазване на наследството, посветена на съхраняването на еврейското гробище в Карнобат с почит, историческа точност и обществена отговорност.",
+        why_1: "Едно от най-големите исторически еврейски гробища в България, обслужвало няколко общности в продължение на векове.",
+        why_2: "Надгробните камъни са застрашени от ерозия, вандализъм и занемаряване. Нужна е спешна реставрация.",
+        why_3: "Документираме, защитаваме и възстановяваме с уважение и достойнство за бъдещите поколения.",
 
-        mvp_title: "Мисия, визия и принципи",
-        mvp_sub: "Кои сме и какво отстояваме.",
         mvp_mission_h: "Мисия",
-        mvp_mission_p: "SHOMER е посветена на опазването, защитата и възстановяването на историческото еврейско гробище в Карнобат, България, като осигурява достойнство за погребаните и съхранява културното и историческото наследство за бъдещите поколения.",
+        mvp_mission_p: "Да опазим, документираме и възстановим еврейското гробище в Карнобат с грижа и достойнство.",
         mvp_vision_h: "Визия",
-        mvp_vision_p: "Да превърнем еврейското гробище в Карнобат от застрашен обект в защитено, документирано и поддържано с уважение място на памет, образование и историческа приемственост.",
-        mvp_principles_h: "Водещи принципи",
-        gp_1: "Достойнството на починалите е най-важно.",
-        gp_2: "Без нарушаване на гробовете; без инвазивни намеси без надлежно разрешение.",
-        gp_3: "Историческа точност и уважение.",
-        gp_4: "Международно сътрудничество.",
-        gp_5: "Прозрачност в дейността и управлението.",
-        mvp_taglines_h: "Варианти за слоган",
-        tl_1: "Съхраняваме паметта. Възстановяваме достойнството.",
-        tl_2: "Пазители на забравеното наследство.",
-        tl_3: "Където историята се помни, а не се изоставя.",
+        mvp_vision_p: "Защитен и документиран мемориален обект за памет, образование и историческа приемственост.",
+        mvp_principles_h: "Принципи",
+        gp_1: "Достойнството на покойниците е най-важно",
+        gp_2: "Без нарушаване на гробове без разрешение",
+        gp_3: "Историческа точност и уважение",
+        scholarship_h: "Гробището и научните изследвания",
+        scholarship_p1: "Карнобат е дом на най-голямата еврейска некропола в България, създадена от евреите в Карнобат — заселени в града още от XVI век — и използвана и от съседни общности.",
+        scholarship_p2: "Някога гробището е съдържало над 1000 надгробни камъка. Най-ранният известен е от 1686 г., а по-късните погребения включват периода на Балканските войни (1912–1913) и Първата световна война.",
+        scholarship_p3: "Работата на SHOMER стъпва на документиране и изследвания, включително книгата на Цви Керен (2014) \"The Jews of Karnobat\", описвана като първото изследване на еврейската общност в Карнобат и нейното гробище — и първото изследване на еврейско гробище в България.",
+        scholarship_link1: "Прочети представянето",
+        scholarship_link2: "Виж обявата за книгата",
 
-        struct_title: "Цели и организационна структура",
-        struct_sub: "Как работим: възстановяване + изследвания + комуникация + защита.",
-        struct_obj_h: "Основни цели",
-        obj_1: "Физическо опазване: стабилизиране и възстановяване на разместени или увредени надгробни камъни; ограничаване на ерозия, вандализъм и кражби; защитни мерки.",
-        obj_2: "Документация и изследвания: каталогизация и дигитализация; съхраняване на надписи на иврит и ладино; академични партньорства.",
-        obj_3: "Културна и образователна дейност: публично образование; изложби; връзка с диаспората (Канада, Израел, Европа).",
-        obj_4: "Застъпничество и правна защита: сътрудничество с институциите за опазване на наследството; дългосрочно стопанисване.",
-        struct_org_h: "Организационна структура",
-        org_1: "Управителен съвет: Председател, Зам.-председател, Финанси, Изследвания и архив, Възстановяване и теренни операции.",
-        org_2: "Консултативен съвет (по избор, но много силен): историци, юристи, специалисти по консервация, обществени лидери.",
-        org_3: "Оперативни екипи: Теренни операции (България), Изследвания и дигитален архив, Комуникации и общност, Партньорства.",
-        struct_story_h: "Основание",
-        struct_story_p: "Еврейското гробище в Карнобат, основано преди векове и някога с над хиляда надгробни камъка, е сред най-значимите, но тежко занемарени еврейски обекти на наследството в България. SHOMER е основана от студенти в Канада, България и Израел, за да реагира с неотложност, уважение и дългосрочно стопанисване.",
+        vol_title: "Включете се",
+        vol_p: "Подкрепете грижата за този важен обект на наследството. Студенти, професионалисти и членове на общността са сърдечно поканени да участват.",
+        form_name: "Име и фамилия",
+        form_email: "Имейл адрес",
+        form_role_placeholder: "Област на интерес…",
+        role_board_interest: "Управление на съвета / изпълнително ръководство",
+        role_advisory_interest: "Консултативен съвет",
+        role_research_interest: "Изследвания и документация",
+        role_restoration_interest: "Реставрация и грижа за обекта",
+        role_communications_interest: "Комуникации и обществена ангажираност",
+        form_message: "Разкажете ни как бихте желали да допринесете…",
+        form_submit: "Изпратете заявление за интерес",
+        form_thanks: "Благодарим",
+        form_received: "Вашето заявление за интерес е получено. Скоро ще се свържем с Вас на",
 
-        vol_title: "Призив за доброволци",
-        vol_p: "В момента набираме доброволци за лидерски и консултативни роли. Ако можете да отделите време, експертиза или организационна подкрепа, каним ви да се включите в Управителния съвет, Консултативния съвет или оперативните екипи.",
-        vol_email: "Пиши ни, за да се включиш →",
-        vol_note: "⟡ По-късно сменете имейла с реален адрес.",
-
-        board_title: "Управителен съвет и Консултативен съвет",
-        board_sub: "Шаблони — добавете имена/снимки по-късно.",
-        board_bod_h: "Управителен съвет (шаблони)",
-        board_bod_p: "Търсим ангажирани доброволци за роли в управлението.",
+        board_title: "Управителен съвет и консултативен съвет",
         role_pres: "Председател",
-        role_vp: "Зам.-председател",
-        role_fin: "Финанси",
-        role_arch: "Изследвания и архив",
-        role_ops: "Възстановяване и теренни операции",
-        role_comms: "Комуникации",
-        board_adv_h: "Консултативен съвет (шаблони)",
-        board_adv_p: "Приветстваме историци, юристи, консерватори и обществени лидери.",
-        adv_1: "Историк (еврейска / балканска история)",
-        adv_2: "Юридически съветник (наследство / НПО)",
-        adv_3: "Специалист по консервация",
-        adv_4: "Обществен лидер",
-        adv_5: "Архивист / дигитални хуманитарни науки",
-        adv_6: "Обществени политики / партньорства",
+        role_vp: "Заместник-председател",
+        role_ops: "Директор по реставрация и грижа за обекта",
 
-        gal_kicker: "Фотоархив на гробището",
-        gal_title: "Галерия",
-        gal_link: "Отвори пълната категория в Wikimedia Commons ↗",
-        gal_loading: "Зареждане на снимки…",
+        gal_kicker: "Архив на гробището",
+        gal_title: "Фотографски архив",
+        gal_full_archive: "Вижте пълния архив",
+        credits_kicker: "Права и атрибуция",
+        credits_title: "Фото кредити и изходен архив",
+        credits_body: "Избраните изображения в галерията са хоствани локално на този сайт за по-голяма надеждност. Изходен архив: снимки на Еврейското гробище в Карнобат от Олег Юнаков в Wikimedia Commons.",
+        credits_note: "Атрибуция при повторна употреба: Oleg Yunakov / CC BY-SA 4.0. Моля, запазвайте името на автора, линка към източника и лицензионната бележка при повторна употреба.",
+        credits_link: "Виж източници и лиценз",
 
-        footer_text:
-`© 2026 SHOMER — Society for Historical Oversight and Maintenance of Eternal Remembrance
-Създаден за координация, документация и доброволческо управление (без дарения).
-Снимките се зареждат директно от Wikimedia Commons и са под съответните лицензи и изисквания за атрибуция.`
+        map_zoom_btn: "Намерете гробището",
+        map_popup: "Еврейско гробище в Карнобат",
+
+        footer_line1: "© 2026 SHOMER — Общество за историческо наблюдение и поддържане на вечното възпоменание. Студентска инициатива за опазване на наследството, посветена на еврейското гробище в Карнобат, България.",
+        footer_line2: "SHOMER насърчава документирането, грижата и възстановяването чрез доброволчески труд, историческа отговорност и уважение към достойнството на покойниците."
       },
 
       he: {
-        nav_subtitle: "שימור בית העלמין היהודי בקרנובט",
+        nav_subtitle: "החברה לתיעוד היסטורי ולטיפוח זיכרון עולם",
         nav_about: "אודות",
-        nav_structure: "מבנה",
-        nav_board: "הנהלה וייעוץ",
-        nav_gallery: "גלריה",
+        nav_mission: "שליחות",
+        nav_board: "הנהגה",
+        nav_volunteer: "הצטרפות",
+        nav_gallery: "ארכיון",
+        nav_location: "מפת האתר",
 
-        hero_kicker: "יוזמה בינלאומית בהובלת סטודנטים",
-        hero_title: "שומרים על הזיכרון. מחזירים את הכבוד.",
-        hero_subtitle: "SHOMER מוקדשת לשימור, להגנה ולשיקום בית העלמין היהודי ההיסטורי בקרנובט, בולגריה — לשמור על מורשת בת מאות שנים ולהנציח את הקבורים שם.",
-        hero_cta_volunteer: "התנדבו עם SHOMER →",
-        hero_cta_photos: "צפו בתמונות בית העלמין →",
-        hero_note: "אנחנו עדיין לא מגייסים תרומות. המיקוד המיידי שלנו הוא בניית צוות מתנדבים, ממשל ארגוני ותכנית שיקום אמינה.",
-        hero_scroll: "גללו כדי לחקור",
+        hero_kicker: "יוזמת מורשת בהובלת סטודנטים • בינלאומית",
+        hero_title: "משמרים זיכרון.\nמשיבים כבוד.",
+        hero_subtitle: "SHOMER — החברה לתיעוד היסטורי ולטיפוח זיכרון עולם — פועלת לשמירה ולשיקום בית העלמין היהודי ההיסטורי בקרנובט, בולגריה.",
+        hero_cta_volunteer: "הצטרפו לרשת המתנדבים",
+        hero_cta_gallery: "עיינו בארכיון האתר",
 
-        why_title: "למה קרנובט חשובה",
-        why_1: "אחד הנקרופולים היהודיים הגדולים בבולגריה, ששימש את קרנובט וקהילות סמוכות.",
-        why_2: "מצבות היסטוריות בסיכון עקב הזנחה, סחף, ונדליזם וגניבה.",
-        why_3: "הדגש שלנו: שימור מכובד, תיעוד והגנה לטווח ארוך.",
-        cta_join_board: "הצטרפו להנהלה",
-        cta_join_advisory: "הצטרפו למועצה המייעצת",
-        why_students: "סטודנטים משתפים פעולה בין קנדה, בולגריה וישראל.",
+        why_title: "מדוע קרנובט חשובה",
+        about_acronym: "SHOMER הוא ראשי תיבות של Society for Historical Observation and Maintenance of Eternal Remembrance — יוזמה לשימור מורשת המוקדשת להגנה על בית העלמין היהודי בקרנובט מתוך יראת כבוד, דיוק היסטורי ואחריות קהילתית.",
+        why_1: "אחד מבתי העלמין היהודיים ההיסטוריים הגדולים בבולגריה, ששירת קהילות במשך מאות שנים.",
+        why_2: "המצבות סובלות מסחיפה, ונדליזם והזנחה. נדרש שיקום דחוף.",
+        why_3: "אנו מתעדים, מגנים ומשקמים בכבוד וברגישות למען הדורות הבאים.",
 
-        mvp_title: "משימה, חזון ועקרונות מנחים",
-        mvp_sub: "מי אנחנו ועל מה אנחנו עומדים.",
-        mvp_mission_h: "משימה",
-        mvp_mission_p: "SHOMER מוקדשת לשימור, להגנה ולשיקום בית העלמין היהודי ההיסטורי בקרנובט, בולגריה, תוך שמירה על כבוד הנפטרים והבטחת שימור מורשת תרבותית והיסטורית לדורות הבאים.",
+        mvp_mission_h: "שליחות",
+        mvp_mission_p: "לשמר, לתעד ולשקם את בית העלמין היהודי בקרנובט בכבוד ובאחריות.",
         mvp_vision_h: "חזון",
-        mvp_vision_p: "להפוך את בית העלמין היהודי בקרנובט מאתר בסיכון לאתר מוגן, מתועד ומתוחזק בכבוד — מקום של זיכרון, למידה ורצף היסטורי.",
-        mvp_principles_h: "עקרונות מנחים",
-        gp_1: "כבוד הנפטרים הוא מעל הכול.",
-        gp_2: "אי־הפרעת קברים; אין התערבות פולשנית ללא סמכות מתאימה.",
-        gp_3: "דיוק היסטורי וכבוד.",
-        gp_4: "שיתוף פעולה בינלאומי.",
-        gp_5: "שקיפות בפעילות ובממשל.",
-        mvp_taglines_h: "הצעות לסלוגן",
-        tl_1: "שומרים על הזיכרון. מחזירים את הכבוד.",
-        tl_2: "שומרים על מורשת שנשכחה.",
-        tl_3: "מקום שבו ההיסטוריה נזכרת — לא ננטשת.",
+        mvp_vision_p: "אתר מוגן ומתועד של זיכרון, חינוך והמשכיות היסטורית.",
+        mvp_principles_h: "עקרונות",
+        gp_1: "כבוד הנפטרים מעל הכול",
+        gp_2: "אין להפריע לקברים ללא סמכות מתאימה",
+        gp_3: "דיוק היסטורי וכבוד",
+        scholarship_h: "בית העלמין והמחקר",
+        scholarship_p1: "קרנובט היא מקום קבורתה של הנקרופוליס היהודי הגדול ביותר בבולגריה — אתר שהוקם בידי יהודי קרנובט (הנוכחים בעיר מאז המאה ה‑16) ושירת גם קהילות שכנות.",
+        scholarship_p2: "בעבר כלל האתר למעלה מ‑1,000 מצבות. המצבה המוקדמת הידועה מתוארכת ל‑1686, וקבורות מאוחרות יותר כוללות את תקופת מלחמות הבלקן (1912–1913) ומלחמת העולם הראשונה.",
+        scholarship_p3: "פעילות השימור של SHOMER נשענת על תיעוד ומחקר, ובכלל זה מחקרו של צבי קרן (2014) \"The Jews of Karnobat\", המתואר כמחקר הראשון על הקהילה היהודית בקרנובט ועל בית העלמין שלה — וכמחקר הראשון על בית עלמין יהודי בבולגריה.",
+        scholarship_link1: "לקרוא סקירה",
+        scholarship_link2: "לצפות בפרטי הספר",
 
-        struct_title: "יעדים ומבנה ארגוני",
-        struct_sub: "איך אנחנו עובדים: שיקום + מחקר + הסברה + הגנה.",
-        struct_obj_h: "יעדים מרכזיים",
-        obj_1: "שימור פיזי: ייצוב ושיקום מצבות שנדדו או ניזוקו; צמצום סחף, ונדליזם וגניבה; צעדי הגנה.",
-        obj_2: "תיעוד ומחקר: קטלוג ודיגיטציה; שימור כתובות בעברית ובלדינו; שיתופי פעולה אקדמיים.",
-        obj_3: "פעילות תרבותית וחינוכית: חינוך ציבורי; תערוכות; קשר עם תפוצות (קנדה, ישראל, אירופה).",
-        obj_4: "סנגור והגנה משפטית: עבודה עם הרשויות להגנת מורשת; אחריות לטווח ארוך.",
-        struct_org_h: "מבנה ארגוני",
-        org_1: "הנהלה: נשיא/ה, סגן/ית, כספים, מחקר וארכיונים, שיקום ותפעול שטח.",
-        org_2: "מועצה מייעצת (אופציונלית אך משמעותית): היסטוריונים, משפטנים, מומחי שימור, מנהיגי קהילה.",
-        org_3: "צוותי עבודה: שטח (בולגריה), מחקר וארכיון דיגיטלי, תקשורת והסברה, שותפויות.",
-        struct_story_h: "סיפור ההקמה",
-        struct_story_p: "בית העלמין היהודי בקרנובט, שנוסד לפני מאות שנים וכלל בעבר מעל אלף מצבות, הוא מן האתרים היהודיים החשובים אך המוזנחים ביותר בבולגריה. SHOMER נוסדה בידי סטודנטים בקנדה, בולגריה וישראל כדי להגיב בדחיפות, בכבוד ובאחריות ארוכת טווח.",
+        vol_title: "הצטרפו אלינו",
+        vol_p: "סייעו בשמירה האחראית על אתר מורשת חשוב זה. סטודנטים, אנשי מקצוע ובני קהילה מוזמנים בחום להשתתף.",
+        form_name: "שם מלא",
+        form_email: "כתובת דוא״ל",
+        form_role_placeholder: "תחום עניין…",
+        role_board_interest: "ממשל דירקטוריון / הנהגה ביצועית",
+        role_advisory_interest: "מועצה מייעצת",
+        role_research_interest: "מחקר ותיעוד",
+        role_restoration_interest: "שיקום וניהול האתר",
+        role_communications_interest: "תקשורת והסברה לציבור",
+        form_message: "ספרו לנו כיצד תרצו לתרום…",
+        form_submit: "שליחת הבעת עניין",
+        form_thanks: "תודה",
+        form_received: "הבעת העניין שלך התקבלה. ניצור קשר בקרוב בכתובת",
 
-        vol_title: "קריאה להתנדבות",
-        vol_p: "אנחנו מגייסים מתנדבים לתפקידי הנהגה וייעוץ. אם תוכלו לתרום זמן, מומחיות או תמיכה ארגונית — נשמח שתצטרפו להנהלה, למועצה המייעצת או לצוותי העבודה.",
-        vol_email: "שלחו אימייל כדי להתנדב →",
-        vol_note: "⟡ החליפו את כתובת האימייל לכתובת האמיתית בהמשך.",
+        board_title: "חבר הנאמנים והמועצה המייעצת",
+        role_pres: "יושב/ת ראש",
+        role_vp: "סגן/ית יושב/ת ראש",
+        role_ops: "מנהל/ת השיקום וניהול האתר",
 
-        board_title: "הנהלה ומועצה מייעצת",
-        board_sub: "ממלאי מקום — הוסיפו שמות/תמונות בהמשך.",
-        board_bod_h: "הנהלה (ממלאי מקום)",
-        board_bod_p: "אנחנו מחפשים מתנדבים מחויבים לתפקידי ממשל.",
-        role_pres: "נשיא/ה",
-        role_vp: "סגן/ית נשיא/ה",
-        role_fin: "מנהל/ת כספים",
-        role_arch: "מחקר וארכיונים",
-        role_ops: "שיקום ותפעול שטח",
-        role_comms: "תקשורת",
-        board_adv_h: "מועצה מייעצת (ממלאי מקום)",
-        board_adv_p: "נשמח להיסטוריונים, משפטנים, משמרים ומנהיגי קהילה.",
-        adv_1: "היסטוריון/ית (יהודית / בלקנית)",
-        adv_2: "יועץ/ת משפטי/ת (מורשת / עמותות)",
-        adv_3: "מומחה/ית שימור",
-        adv_4: "מנהיג/ת קהילה",
-        adv_5: "ארכיונאי/ת / מדעי הרוח הדיגיטליים",
-        adv_6: "יחסי ציבור / שותפויות",
+        gal_kicker: "ארכיון בית העלמין",
+        gal_title: "ארכיון צילומים",
+        gal_full_archive: "לצפייה בארכיון המלא",
+        credits_kicker: "זכויות וייחוס",
+        credits_title: "קרדיטים לצילומים וארכיון המקור",
+        credits_body: "תמונות הגלריה הנבחרות מאוחסנות מקומית באתר זה לשם יציבות ואמינות. ארכיון המקור: צילומי בית העלמין היהודי בקרנובט מאת אולג יונאקוב ב־Wikimedia Commons.",
+        credits_note: "ייחוס לשימוש חוזר בתמונות: Oleg Yunakov / CC BY-SA 4.0. אנא שמרו על שם היוצר, קישור למקור והודעת הרישיון בכל שימוש חוזר בקבצי האתר.",
+        credits_link: "לעיון במקורות וברישוי",
 
-        gal_kicker: "ארכיון תמונות",
-        gal_title: "גלריה",
-        gal_link: "פתחו את הקטגוריה המלאה ב־Wikimedia Commons ↗",
-        gal_loading: "טוען תמונות…",
+        map_zoom_btn: "איתור בית העלמין",
+        map_popup: "בית העלמין היהודי בקרנובט",
 
-        footer_text:
-`© 2026 SHOMER — Society for Historical Oversight and Maintenance of Eternal Remembrance
-נבנה לתיאום, תיעוד וממשל מתנדבים (ללא תרומות).
-התמונות נטענות ישירות מ־Wikimedia Commons וכפופות לרישיונות ולדרישות הייחוס שלהן.`
+        footer_line1: "© 2026 SHOMER — החברה לתיעוד היסטורי ולטיפוח זיכרון עולם. יוזמת שימור מורשת בהובלת סטודנטים המוקדשת לבית העלמין היהודי בקרנובט, בולגריה.",
+        footer_line2: "SHOMER מקדמת תיעוד, אחריות ושיקום באמצעות שירות התנדבותי, מחויבות היסטורית וכבוד לכבודם של הנפטרים."
       }
     };
 
     let currentLang = "en";
 
-    function applyTranslations(lang){
+    function applyTranslations(lang) {
       const dict = translations[lang] || translations.en;
 
       document.querySelectorAll("[data-i18n]").forEach(el => {
         const key = el.getAttribute("data-i18n");
-        if (dict[key] !== undefined) el.textContent = dict[key];
+        if (dict[key]) el.textContent = dict[key];
       });
 
-      ["en","bg","he"].forEach(code => {
-        document.getElementById(`lang-${code}`)?.classList.toggle("active", code === lang);
+      document.querySelectorAll("[data-i18n-ph]").forEach(el => {
+        const key = el.getAttribute("data-i18n-ph");
+        if (dict[key]) el.setAttribute("placeholder", dict[key]);
       });
 
-      if (lang === "he") {
-        document.documentElement.setAttribute("dir","rtl");
-        document.body.classList.add("hebrew-mode");
-      } else {
-        document.documentElement.setAttribute("dir","ltr");
-        document.body.classList.remove("hebrew-mode");
+      document.querySelectorAll(".lang-btn").forEach(b => b.classList.toggle("active", b.id === `lang-${lang}`));
+
+      const isHebrew = lang === "he";
+      document.documentElement.setAttribute("dir", isHebrew ? "rtl" : "ltr");
+      document.documentElement.setAttribute("lang", lang);
+      document.body.classList.toggle("hebrew-mode", isHebrew);
+
+      if (typeof marker !== "undefined" && marker) {
+        marker.setPopupContent(dict.map_popup || translations.en.map_popup);
       }
     }
 
-    function switchLanguage(lang){
+    function switchLanguage(lang) {
       currentLang = lang;
       applyTranslations(lang);
       closeMobileMenu();
     }
 
-    function toggleMobileMenu(){
-      document.getElementById("mobile-menu").classList.toggle("hidden");
-    }
-    function closeMobileMenu(){
-      document.getElementById("mobile-menu").classList.add("hidden");
+    function toggleMobileMenu() { document.getElementById("mobile-menu").classList.toggle("hidden"); }
+    function closeMobileMenu() { document.getElementById("mobile-menu").classList.add("hidden"); }
+
+    function handleVolunteerSubmit(e) {
+      e.preventDefault();
+      const dict = translations[currentLang] || translations.en;
+      const name = document.getElementById("name").value;
+      const email = document.getElementById("email").value;
+      alert(`${dict.form_thanks}, ${name}!\n${dict.form_received} ${email}.`);
+      e.target.reset();
     }
 
-    // --- Gallery ---
-    const cemeteryImages = [
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fb/Jewish_Cemetery_in_Karnobat_-_005.jpg/800px-Jewish_Cemetery_in_Karnobat_-_005.jpg",
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Jewish_Cemetery_in_Karnobat_-_006.jpg/800px-Jewish_Cemetery_in_Karnobat_-_006.jpg",
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/Jewish_Cemetery_in_Karnobat_-_007.jpg/800px-Jewish_Cemetery_in_Karnobat_-_007.jpg",
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9f/Jewish_Cemetery_in_Karnobat_-_008.jpg/800px-Jewish_Cemetery_in_Karnobat_-_008.jpg",
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4c/Jewish_Cemetery_in_Karnobat_-_009.jpg/800px-Jewish_Cemetery_in_Karnobat_-_009.jpg",
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/5/54/Jewish_Cemetery_in_Karnobat_-_010.jpg/800px-Jewish_Cemetery_in_Karnobat_-_010.jpg",
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Jewish_Cemetery_in_Karnobat_-_011.jpg/800px-Jewish_Cemetery_in_Karnobat_-_011.jpg",
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Jewish_Cemetery_in_Karnobat_-_012.jpg/800px-Jewish_Cemetery_in_Karnobat_-_012.jpg",
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1d/Jewish_Cemetery_in_Karnobat_-_013.jpg/800px-Jewish_Cemetery_in_Karnobat_-_013.jpg",
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b5/Jewish_Cemetery_in_Karnobat_-_014.jpg/800px-Jewish_Cemetery_in_Karnobat_-_014.jpg",
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Jewish_Cemetery_in_Karnobat_-_015.jpg/800px-Jewish_Cemetery_in_Karnobat_-_015.jpg",
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/Jewish_Cemetery_in_Karnobat_-_016.jpg/800px-Jewish_Cemetery_in_Karnobat_-_016.jpg",
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/Jewish_Cemetery_in_Karnobat_-_017.jpg/800px-Jewish_Cemetery_in_Karnobat_-_017.jpg",
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/Jewish_Cemetery_in_Karnobat_-_018.jpg/800px-Jewish_Cemetery_in_Karnobat_-_018.jpg",
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2a/Jewish_Cemetery_in_Karnobat_-_019.jpg/800px-Jewish_Cemetery_in_Karnobat_-_019.jpg",
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/3/39/Jewish_Cemetery_in_Karnobat_-_020.jpg/800px-Jewish_Cemetery_in_Karnobat_-_020.jpg",
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3b/Jewish_Cemetery_in_Karnobat_-_021.jpg/800px-Jewish_Cemetery_in_Karnobat_-_021.jpg",
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/Jewish_Cemetery_in_Karnobat_-_022.jpg/800px-Jewish_Cemetery_in_Karnobat_-_022.jpg",
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/Jewish_Cemetery_in_Karnobat_-_030.jpg/800px-Jewish_Cemetery_in_Karnobat_-_030.jpg",
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/Jewish_Cemetery_in_Karnobat_-_050.jpg/800px-Jewish_Cemetery_in_Karnobat_-_050.jpg",
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Jewish_Cemetery_in_Karnobat_-_078.jpg/800px-Jewish_Cemetery_in_Karnobat_-_078.jpg",
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/8/85/Jewish_Cemetery_in_Karnobat_-_100.jpg/800px-Jewish_Cemetery_in_Karnobat_-_100.jpg",
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d7/Jewish_Cemetery_in_Karnobat_-_150.jpg/800px-Jewish_Cemetery_in_Karnobat_-_150.jpg",
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ad/Jewish_Cemetery_in_Karnobat_-_200.jpg/800px-Jewish_Cemetery_in_Karnobat_-_200.jpg",
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/Jewish_Cemetery_in_Karnobat_-_202.jpg/800px-Jewish_Cemetery_in_Karnobat_-_202.jpg",
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3b/Jewish_Cemetery_in_Karnobat_-_250.jpg/800px-Jewish_Cemetery_in_Karnobat_-_250.jpg",
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Jewish_Cemetery_in_Karnobat_-_300.jpg/800px-Jewish_Cemetery_in_Karnobat_-_300.jpg",
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/Jewish_Cemetery_in_Karnobat_-_400.jpg/800px-Jewish_Cemetery_in_Karnobat_-_400.jpg",
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/8/83/Jewish_Cemetery_in_Karnobat_-_500.jpg/800px-Jewish_Cemetery_in_Karnobat_-_500.jpg",
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0a/Jewish_Cemetery_in_Karnobat_-_532.jpg/800px-Jewish_Cemetery_in_Karnobat_-_532.jpg"
-      // Expanded with more images from the category pattern; add more as needed for completeness
+    const galleryImages = [
+      "./images/gallery/karnobat-005.jpg",
+      "./images/gallery/karnobat-006.jpg",
+      "./images/gallery/karnobat-007.jpg",
+      "./images/gallery/karnobat-008.jpg",
+      "./images/gallery/karnobat-009.jpg",
+      "./images/gallery/karnobat-012.jpg",
+      "./images/gallery/karnobat-013.jpg",
+      "./images/gallery/karnobat-014.jpg",
+      "./images/gallery/karnobat-015.jpg",
+      "./images/gallery/karnobat-017.jpg",
+      "./images/gallery/karnobat-019.jpg"
     ];
 
-    let imageIndex = 0;
-    let isLoading = false;
-
-    function createGalleryItem(url, filename){
-      const item = document.createElement("div");
-      item.className = "gallery-item group relative overflow-hidden";
-      item.innerHTML = `
-        <img src="${url}" class="masonry-img" loading="lazy" alt="${filename}">
-        <div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-end p-5"
-             style="background:linear-gradient(to top, rgba(2,6,23,.65), rgba(2,6,23,0) 60%); border-radius:16px;">
-          <div class="text-[11px] leading-snug text-white/90">
-            ${filename}<br>
-            <span class="font-mono text-white/70">
-              © This picture has been taken by Oleg Yunakov. Contact e-mail: yunakov@gmail.com. Image can be used in accordance with the terms of the CC-BY-SA license. · CC BY-SA 4.0
-            </span>
-          </div>
-        </div>
-      `;
-      return item;
-    }
-
-    function addImages(count){
-      if (isLoading) return;
-      isLoading = true;
-
-      const container = document.getElementById("gallery-container");
-      const loadingEl = document.getElementById("loading");
-      loadingEl.classList.remove("hidden");
-
-      setTimeout(() => {
-        for (let i=0; i<count; i++){
-          const idx = imageIndex % cemeteryImages.length;
-          const url = cemeteryImages[idx];
-          const filename = decodeURIComponent(url.split("/").pop().replace("/800px-", " "));
-          container.appendChild(createGalleryItem(url, filename));
-          imageIndex++;
-        }
-        loadingEl.classList.add("hidden");
-        isLoading = false;
-      }, 280);
-    }
-
-    function handleScroll(){
-      const scrollTop = window.scrollY;
-      const docHeight = document.documentElement.scrollHeight;
-      const winHeight = window.innerHeight;
-
-      const scrollPercent = (scrollTop / Math.max(1,(docHeight - winHeight))) * 100;
-      document.getElementById("progress-bar").style.width = `${scrollPercent}%`;
-
-      if (winHeight + scrollTop >= docHeight - 900 && !isLoading) addImages(6);
-    }
-
-    function enableSmoothAnchors(){
-      document.querySelectorAll('a[href^="#"]').forEach(a => {
-        a.addEventListener("click", e => {
-          const href = a.getAttribute("href");
-          if (!href || href === "#") return;
-          const target = document.querySelector(href);
-          if (!target) return;
-          e.preventDefault();
-          closeMobileMenu();
-          target.scrollIntoView({behavior:"smooth"});
-        });
+    function buildGallery() {
+      const grid = document.getElementById("gallery-grid");
+      galleryImages.forEach(url => {
+        const div = document.createElement("div");
+        div.className = "gallery-item overflow-hidden rounded-3xl bg-slate-100";
+        div.innerHTML = `<img src="${url}" class="masonry-img" loading="lazy" decoding="async" alt="Karnobat Jewish Cemetery" onerror="this.closest('.gallery-item').remove()">`;
+        grid.appendChild(div);
       });
     }
 
-    function initialize(){
-      applyTranslations(currentLang);
-      enableSmoothAnchors();
-      addImages(6);  // Reduced initial batch for faster load
-      window.addEventListener("scroll", handleScroll);
+    let map, marker, cemeteryLatLng = [42.6342, 26.9795];
+
+    function initMap() {
+      const isMobile = window.innerWidth <= 600;
+      map = L.map('map', { attributionControl: false }).setView(isMobile ? [42.6342, 26.9795] : [50, 10], isMobile ? 6 : 3);
+
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}').addTo(map);
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}').addTo(map);
+
+      marker = L.marker(cemeteryLatLng).addTo(map).bindPopup((translations[currentLang] || translations.en).map_popup);
+
+      const attCtrl = L.Control.extend({
+        options: { position: 'bottomright' },
+        onAdd: function() {
+          const c = L.DomUtil.create('div', 'leaflet-control-attribution');
+          c.innerHTML = 'Attribution';
+          let expanded = false;
+          c.onclick = () => {
+            if (expanded) {
+              c.innerHTML = 'Attribution';
+              c.classList.remove('expanded');
+            } else {
+              c.innerHTML = 'Leaflet | Tiles © Esri — Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community, Borders & Labels © Esri';
+              c.classList.add('expanded');
+            }
+            expanded = !expanded;
+          };
+          return c;
+        }
+      });
+      map.addControl(new attCtrl());
+    }
+
+    function zoomToCemetery() {
+      map.flyTo(cemeteryLatLng, 18, { animate: true, duration: 2.2 });
+      marker.openPopup();
+    }
+
+    function initialize() {
+      applyTranslations("en");
+      buildGallery();
+      initMap();
+
+      window.addEventListener("scroll", () => {
+        const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+        const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        document.getElementById("progress-bar").style.width = (winScroll / height) * 100 + "%";
+      });
     }
 
     window.onload = initialize;
   </script>
 </body>
 </html>
-
-```
